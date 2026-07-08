@@ -526,6 +526,37 @@ python -m open_clip_train.main \
     --pretrained laion400m_e32
 ```
 
+### Evaluating GenLIP with an attentive ImageNet-1k probe:
+
+`scripts/genlip_attentive_probe.py` evaluates a frozen NaFlex GenLIP image encoder by caching last-layer image patch
+features and training only an `AttentionPoolLatent` classification head. The ImageNet train and val directories must
+use the standard `torchvision.datasets.ImageFolder` layout with 1000 class subdirectories.
+
+```bash
+python scripts/genlip_attentive_probe.py \
+    --model naflexgenlip_b16 \
+    --checkpoint /path/to/checkpoints/epoch_32.pt \
+    --imagenet-train /path/to/imagenet/train \
+    --imagenet-val /path/to/imagenet/val \
+    --seq-len 256 \
+    --train-per-class 100 \
+    --epochs 20 \
+    --lr 1e-3 \
+    --device cuda \
+    --cache-device cpu \
+    --cache-dir /path/to/probe-cache \
+    --output-dir /path/to/probe-runs/genlip_b16_epoch32
+```
+
+Use `--cache-dir` to resume feature extraction across runs; cached tensors are validated against the model name,
+checkpoint path, EMA flag, ImageNet root, sequence length, patch size, sample count, and seed. Use `--force-recache`
+after changing data or preprocessing. The script writes epoch metrics to `results.jsonl` under `--output-dir` and saves
+the best probe head as `best_head.pt`.
+
+`--cache-device cuda` can speed up head training when the feature cache fits in GPU memory, but full ImageNet caches are
+large. The script estimates the cache footprint and falls back to CPU cache when the requested CUDA cache would exceed
+available memory.
+
 ### Evaluating CLAP audio models on zero-shot audio classification:
 
 Audio zero-shot evaluation uses Hugging Face audio classification datasets. Install the optional audio dependencies before running these examples.
