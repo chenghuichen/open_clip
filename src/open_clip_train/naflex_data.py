@@ -109,8 +109,16 @@ def get_naflex_model_patch_size(model) -> Optional[Tuple[int, int]]:
 
 
 def get_naflex_model_image_seq_len(model) -> Optional[int]:
-    image_seq_len = getattr(getattr(model, 'visual', None), 'image_seq_len', None)
-    return int(image_seq_len) if image_seq_len is not None else None
+    visual = getattr(model, 'visual', None)
+    image_seq_len = getattr(visual, 'image_seq_len', None)
+    if image_seq_len is not None:
+        return int(image_seq_len)
+    patch_size = get_naflex_model_patch_size(model)
+    image_size = getattr(visual, 'image_size', None)
+    if patch_size is None or image_size is None:
+        return None
+    image_size = to_2tuple(image_size)
+    return (image_size[0] // patch_size[0]) * (image_size[1] // patch_size[1])
 
 
 def create_naflex_data_config_from_args(

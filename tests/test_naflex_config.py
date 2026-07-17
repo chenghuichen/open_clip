@@ -1,7 +1,10 @@
+from types import SimpleNamespace
+
 import pytest
 
 import open_clip
 from open_clip.naflex_config import NaFlexDataConfig
+from open_clip_train.naflex_data import get_naflex_model_image_seq_len
 
 
 def test_naflex_data_config_resolves_train_and_eval_values():
@@ -51,6 +54,33 @@ def test_siglip2_naflex_configs_default_to_384_dense_and_576_tokens():
         vision_cfg = open_clip.get_model_config(model_name)["vision_cfg"]
         assert vision_cfg["image_size"] == 384
         assert vision_cfg["image_seq_len"] == 576
+
+
+def test_naflex_model_eval_seq_len_prefers_explicit_value():
+    visual = SimpleNamespace(image_seq_len=576, image_size=(224, 224))
+    model = SimpleNamespace(visual=visual)
+
+    assert get_naflex_model_image_seq_len(model) == 576
+
+
+@pytest.mark.parametrize(
+    ("image_size", "patch_size", "expected"),
+    [
+        (224, (16, 16), 196),
+        ((256, 384), (16, 32), 192),
+    ],
+)
+def test_naflex_model_eval_seq_len_falls_back_to_nominal_grid(image_size, patch_size, expected):
+    trunk = SimpleNamespace(get_patch_size=lambda: patch_size)
+    model = SimpleNamespace(visual=SimpleNamespace(image_size=image_size, trunk=trunk))
+
+    assert get_naflex_model_image_seq_len(model) == expected
+
+
+def test_naflex_model_eval_seq_len_is_unknown_without_geometry():
+    model = SimpleNamespace(visual=SimpleNamespace())
+
+    assert get_naflex_model_image_seq_len(model) is None
 
 
 def test_naflex_data_config_rejects_negative_patch_size_probs():
